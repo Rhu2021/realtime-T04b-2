@@ -54,6 +54,9 @@ IDXGISwapChain*         g_pSwapChain = nullptr;
 IDXGISwapChain1*        g_pSwapChain1 = nullptr;
 ID3D11RenderTargetView* g_pRenderTargetView = nullptr;
 ID3D11VertexShader*     g_pVertexShader = nullptr;
+// new declare
+ID3D11VertexShader*     g_pVertexShader_1 = nullptr;
+
 ID3D11PixelShader*      g_pPixelShader = nullptr;
 ID3D11InputLayout*      g_pVertexLayout = nullptr;
 ID3D11Buffer*           g_pVertexBuffer = nullptr;
@@ -345,7 +348,7 @@ HRESULT InitDevice()
 
     // Compile the vertex shader
     ID3DBlob* pVSBlob = nullptr;
-    hr = CompileShaderFromFile( L"Tutorial04.fx", "VS", "vs_4_0", &pVSBlob );
+    hr = CompileShaderFromFile( L"Tutorial04.fx", "VS_main", "vs_4_0", &pVSBlob );
     if( FAILED( hr ) )
     {
         MessageBox( nullptr,
@@ -354,7 +357,12 @@ HRESULT InitDevice()
     }
 
 	// Create the vertex shader
-	hr = g_pd3dDevice->CreateVertexShader( pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &g_pVertexShader );
+	//hr = g_pd3dDevice->CreateVertexShader( pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &g_pVertexShader );
+
+    //create vertex shader using VS_main()
+    hr = g_pd3dDevice1->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &g_pVertexShader_1);
+
+
 	if( FAILED( hr ) )
 	{	
 		pVSBlob->Release();
@@ -473,7 +481,7 @@ HRESULT InitDevice()
 	g_World = XMMatrixIdentity();
 
     // Initialize the view matrix
-	XMVECTOR Eye = XMVectorSet( 0.0f, 1.0f, -5.0f, 0.0f );
+	XMVECTOR Eye = XMVectorSet( 0.0f, 2.5f, -5.0f, 0.0f );
 	XMVECTOR At = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	XMVECTOR Up = XMVectorSet( 0.0f, 1.0f, 0.0f, 0.0f );
 	g_View = XMMatrixLookAtLH( Eye, At, Up );
@@ -497,6 +505,8 @@ void CleanupDevice()
     if( g_pIndexBuffer ) g_pIndexBuffer->Release();
     if( g_pVertexLayout ) g_pVertexLayout->Release();
     if( g_pVertexShader ) g_pVertexShader->Release();
+    //release once been created
+    if (g_pVertexShader_1) g_pVertexShader_1->Release();
     if( g_pPixelShader ) g_pPixelShader->Release();
     if( g_pRenderTargetView ) g_pRenderTargetView->Release();
     if( g_pSwapChain1 ) g_pSwapChain1->Release();
@@ -580,7 +590,9 @@ void Render()
     //
     // Renders a triangle
     //
-	g_pImmediateContext->VSSetShader( g_pVertexShader, nullptr, 0 );
+	//g_pImmediateContext->VSSetShader( g_pVertexShader, nullptr, 0 );
+    g_pImmediateContext->VSSetShader(g_pVertexShader_1, nullptr, 0);
+
 	g_pImmediateContext->VSSetConstantBuffers( 0, 1, &g_pConstantBuffer );
 	g_pImmediateContext->PSSetShader( g_pPixelShader, nullptr, 0 );
 	g_pImmediateContext->DrawIndexed( 36, 0, 0 );        // 36 vertices needed for 12 triangles in a triangle list
