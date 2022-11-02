@@ -28,6 +28,8 @@ struct SimpleVertex
 {
     XMFLOAT3 Pos;
     XMFLOAT4 Color;
+    //4. add a new member in the struct SimpleVertex corresponding to vertex normal
+    XMFLOAT3 Normal;
 };
 
 
@@ -36,12 +38,15 @@ struct ConstantBuffer
 	XMMATRIX mWorld;
 	XMMATRIX mView;
 	XMMATRIX mProjection;
+    //add new element " lightPos "
+    XMVECTOR lightPos;
 };
 
 
 //--------------------------------------------------------------------------------------
 // Global Variables
 //--------------------------------------------------------------------------------------
+// 9.1 add global variables relating to the creation of the depth-stencil and its view
 HINSTANCE               g_hInst = nullptr;
 HWND                    g_hWnd = nullptr;
 D3D_DRIVER_TYPE         g_driverType = D3D_DRIVER_TYPE_NULL;
@@ -65,6 +70,9 @@ ID3D11Buffer*           g_pConstantBuffer = nullptr;
 XMMATRIX                g_World;
 XMMATRIX                g_View;
 XMMATRIX                g_Projection;
+//9.1 
+ID3D11Texture2D* g_pDepthStencil = nullptr;
+ID3D11DepthStencilView* g_pDepthStencilView = nullptr;
 
 
 //--------------------------------------------------------------------------------------
@@ -336,6 +344,33 @@ HRESULT InitDevice()
 
     g_pImmediateContext->OMSetRenderTargets( 1, &g_pRenderTargetView, nullptr );
 
+
+    //9.2 create a depth stencil texture object
+    // Create depth stencil texture
+    D3D11_TEXTURE2D_DESC descDepth;
+    ZeroMemory(&descDepth, sizeof(descDepth));
+    descDepth.Width = width;
+
+    descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+    hr = g_pd3dDevice->CreateTexture2D(&descDepth, nullptr, &g_pDepthStencil);
+
+
+    //9.3 . Create the depth-stencil view using the depth-stencil texture created above:
+    // Create depth stencil view
+    D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
+    ZeroMemory(&descDSV, sizeof(descDSV));
+    descDSV.Format = descDepth.Format;
+    descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+    descDSV.Texture2D.MipSlice = 0;
+    hr = g_pd3dDevice->CreateDepthStencilView(g_pDepthStencil, &descDSV, &g_pDepthStencilView);
+
+
+    //9.4  Set render target using the created depth-stencil view
+    g_pImmediateContext->OMSetRenderTargets(1, &g_pRenderTargetView, g_pDepthStencilView);
+
+
+
     // Setup the viewport
     D3D11_VIEWPORT vp;
     vp.Width = (FLOAT)width;
@@ -348,7 +383,8 @@ HRESULT InitDevice()
 
     // Compile the vertex shader
     ID3DBlob* pVSBlob = nullptr;
-    hr = CompileShaderFromFile( L"Tutorial04.fx", "VS_main", "vs_4_0", &pVSBlob );
+    //hr = CompileShaderFromFile( L"Tutorial04.fx", "VS_main", "vs_4_0", &pVSBlob );
+    hr = CompileShaderFromFile(L"Tutorial04.fx", "VS", "vs_4_0", &pVSBlob);
     if( FAILED( hr ) )
     {
         MessageBox( nullptr,
@@ -374,6 +410,8 @@ HRESULT InitDevice()
     {
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
         { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        //5. add a new element in the input vertex element layout corresponding to the normal vector associated to each vertex;
+        { "NORMAL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 	UINT numElements = ARRAYSIZE( layout );
 
@@ -404,17 +442,30 @@ HRESULT InitDevice()
         return hr;
 
     // Create vertex buffer
+    //6. specify the vertices of the 12 triangles used for defining the cube:
     SimpleVertex vertices[] =
     {
-        { XMFLOAT3( -1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 0.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 1.0f, 0.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, 1.0f, 1.0f ), XMFLOAT4( 0.0f, 1.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f, 1.0f, 1.0f ), XMFLOAT4( 1.0f, 0.0f, 0.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 0.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 1.0f, 0.0f, 1.0f ) },
-        { XMFLOAT3( 1.0f, -1.0f, 1.0f ), XMFLOAT4( 1.0f, 1.0f, 1.0f, 1.0f ) },
-        { XMFLOAT3( -1.0f, -1.0f, 1.0f ), XMFLOAT4( 0.0f, 0.0f, 0.0f, 1.0f ) },
+        { XMFLOAT3( -1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 0.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3( 1.0f, 1.0f, -1.0f ), XMFLOAT4( 0.0f, 1.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f)  },
+        { XMFLOAT3( 1.0f, 1.0f, 1.0f ), XMFLOAT4( 0.0f, 1.0f, 1.0f, 1.0f ) , XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3( -1.0f, 1.0f, 1.0f ), XMFLOAT4( 1.0f, 0.0f, 0.0f, 1.0f ) , XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3( -1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 0.0f, 1.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f)  },
+        { XMFLOAT3( 1.0f, -1.0f, -1.0f ), XMFLOAT4( 1.0f, 1.0f, 0.0f, 1.0f ), XMFLOAT3(0.0f, 1.0f, 0.0f)  },
+        { XMFLOAT3( 1.0f, -1.0f, 1.0f ), XMFLOAT4( 1.0f, 1.0f, 1.0f, 1.0f ) , XMFLOAT3(0.0f, 1.0f, 0.0f) },
+        { XMFLOAT3( -1.0f, -1.0f, 1.0f ), XMFLOAT4( 0.0f, 0.0f, 0.0f, 1.0f ) , XMFLOAT3(0.0f, 1.0f, 0.0f) },
     };
+    // old version:
+    /*SimpleVertex vertices[] =
+    {
+        { XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f) },
+        { XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f) },
+        { XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(1.0f, 0.0f, 1.0f, 1.0f) },
+        { XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT4(1.0f, 1.0f, 0.0f, 1.0f) },
+        { XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f) },
+        { XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f) },
+    };*/
     D3D11_BUFFER_DESC bd = {};
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.ByteWidth = sizeof( SimpleVertex ) * 8;
@@ -433,6 +484,8 @@ HRESULT InitDevice()
     g_pImmediateContext->IASetVertexBuffers( 0, 1, &g_pVertexBuffer, &stride, &offset );
 
     // Create index buffer
+    //7. Modify the indices of the triangle list to be drawn corresponding to the new vertex list.
+    //7 null
     WORD indices[] =
     {
         3,1,0,
@@ -452,6 +505,7 @@ HRESULT InitDevice()
 
         6,4,5,
         7,4,6,
+
     };
     bd.Usage = D3D11_USAGE_DEFAULT;
     bd.ByteWidth = sizeof( WORD ) * 36;        // 36 vertices needed for 12 triangles in a triangle list
@@ -551,6 +605,7 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam 
 //--------------------------------------------------------------------------------------
 // Render a frame
 //--------------------------------------------------------------------------------------
+// 9.5 In the Render( ) method, clear the depth-stencil buffer using the created depth-stencil view
 void Render()
 {
     // Update our time
@@ -577,6 +632,10 @@ void Render()
     // Clear the back buffer
     //
     g_pImmediateContext->ClearRenderTargetView( g_pRenderTargetView, Colors::MidnightBlue );
+
+    // 9.5 In the Render( ) method, clear the depth-stencil buffer using the created depth-stencil view
+    //g_pImmediateContext->ClearDepthStencilView(g_pDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
+
 
     //
     // Update variables
